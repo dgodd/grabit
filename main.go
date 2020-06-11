@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	mailjet "github.com/mailjet/mailjet-apiv3-go"
+	"github.com/keighl/postmark"
 	"log"
 	"net/http"
 	"os"
@@ -47,31 +47,21 @@ func main() {
 }
 
 func sendEmail(text string) {
-	mailjetClient := mailjet.NewMailjetClient(os.Getenv("MJ_APIKEY_PUBLIC"), os.Getenv("MJ_APIKEY_PRIVATE"))
-	messagesInfo := []mailjet.InfoMessagesV31{
-		mailjet.InfoMessagesV31{
-			From: &mailjet.RecipientV31{
-				Email: "dave@godard.id.au",
-				Name:  "Dave Goddard",
-			},
-			To: &mailjet.RecipientsV31{
-				mailjet.RecipientV31{
-					Email: "dave@godard.id.au",
-					Name:  "Dave Goddard",
-				},
-				mailjet.RecipientV31{
-					Email: "catherine@lypc.com.au",
-					Name:  "Catherine Garro",
-				},
-			},
-			Subject:  "Grabit - Worldmarksp.com",
-			TextPart: text,
-		},
+	client := postmark.NewClient(os.Getenv("POSTMARK_SERVER_TOKEN"), os.Getenv("POSTMARK_ACCOUNT_TOKEN"))
+
+	for _, emailAddress := range []string{"dave@goddard.id.au", "catherine@lypc.com.au"} {
+		email := postmark.Email{
+			From:       emailAddress,
+			To:         emailAddress,
+			Subject:    "Grabit - Worldmarksp.com",
+			HtmlBody:   "<pre>" + text + "</pre>",
+			TextBody:   text,
+			Tag:        "grabit-changed",
+			TrackOpens: true,
+		}
+		_, err := client.SendEmail(email)
+		if err != nil {
+			panic(err)
+		}
 	}
-	messages := mailjet.MessagesV31{Info: messagesInfo}
-	res, err := mailjetClient.SendMailV31(&messages)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Data: %+v\n", res)
 }
