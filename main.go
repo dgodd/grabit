@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/dgraph-io/badger/v2"
 	"github.com/keighl/postmark"
 	"log"
 	"net/http"
@@ -43,7 +44,36 @@ func main() {
 	})
 
 	fmt.Println(fullText)
-	sendEmail(fullText)
+
+	db, err := badger.Open(badger.DefaultOptions("badger.db"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	err = db.Update(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("grabit-text"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		b, err := item.ValueCopy(nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if string(b) == fullText {
+			fmt.Println("UNCHANGED")
+			return nil
+		}
+
+		fmt.Println("CHANGED - SEND EMAIL")
+
+		sendEmail(fullText)
+
+		txn.Set([]byte("grabit-text"), []byte(fullText))
+		return nil
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func sendEmail(text string) {
